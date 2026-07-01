@@ -6,7 +6,6 @@
 //! original image size.
 
 use anyhow::{anyhow, bail, Result};
-use image::{imageops::FilterType, DynamicImage};
 use ndarray::Array4;
 use ort::session::Session;
 use ort::value::TensorRef;
@@ -99,13 +98,19 @@ impl HandLandmarker {
         format!("inputs: [{}]\noutputs: [{}]", inputs.join(", "), outputs.join(", "))
     }
 
-    /// Runs landmark inference on an image that is (roughly) cropped to a hand.
-    pub fn detect(&mut self, image: &DynamicImage) -> Result<HandResult> {
-        let (orig_w, orig_h) = (image.width() as f32, image.height() as f32);
-        let input = preprocess(image);
-
+    /// Runs inference on an already-preprocessed `[1, 3, 224, 224]` RGB tensor.
+    ///
+    /// `orig_w`/`orig_h` are the source image dimensions, used to map the
+    /// model's 224x224-space landmarks back to source pixels. This is the shared
+    /// core used by both the `image`-crate and OpenCV frame paths.
+    pub fn detect_input(
+        &mut self,
+        input: &Array4<f32>,
+        orig_w: f32,
+        orig_h: f32,
+    ) -> Result<HandResult> {
         let input_name = self.session.inputs()[0].name().to_string();
-        let tensor = TensorRef::from_array_view(&input).map_err(ort_err)?;
+        let tensor = TensorRef::from_array_view(input).map_err(ort_err)?;
         let outputs = self
             .session
             .run(ort::inputs![input_name.as_str() => tensor])
@@ -145,34 +150,5 @@ impl HandLandmarker {
             score,
             handedness,
         })
-    }
-}
-
-/// Resizes to 224x224 RGB and packs into a `[1, 3, 224, 224]` array in 0.0-1.0.
-fn preprocess(image: &DynamicImage) -> Array4<f32> {
-    let resized = image
-        .resize_exact(INPUT_SIZE, INPUT_SIZE, FilterType::Triangle)
-        .to_rgb8();
-    let size = INPUT_SIZE as usize;
-    Array4::from_shape_fn((1, 3, size, size), |(_, c, y, x)| {
-        resized.get_pixel(x as u32, y as u32)[c] as f32 / 255.0
-    })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use image::{Rgb, RgbImage};
-
-    #[test]
-    fn preprocess_shape_and_range() {
-        let mut img = RgbImage::new(100, 50);
-        img.put_pixel(0, 0, Rgb([255, 128, 0]));
-        let arr = preprocess(&DynamicImage::ImageRgb8(img));
-        assert_eq!(arr.shape(), &[1, 3, 224, 224]);
-        assert!(arr.iter().all(|&v| (0.0..=1.0).contains(&v)));
-        // Channel order is RGB: red channel of the top-left pixel is the largest.
-        assert!(arr[[0, 0, 0, 0]] > arr[[0, 1, 0, 0]]);
-        assert!(arr[[0, 1, 0, 0]] > arr[[0, 2, 0, 0]]);
     }
 }
