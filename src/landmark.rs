@@ -5,7 +5,7 @@
 //! landmarks in the 224x224 input pixel space, which are scaled back to the
 //! original image size.
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{Result, anyhow, bail};
 use ndarray::Array4;
 use ort::session::Session;
 use ort::value::TensorRef;
@@ -95,7 +95,11 @@ impl HandLandmarker {
             .iter()
             .map(|o| format!("{} {:?}", o.name(), o.dtype()))
             .collect();
-        format!("inputs: [{}]\noutputs: [{}]", inputs.join(", "), outputs.join(", "))
+        format!(
+            "inputs: [{}]\noutputs: [{}]",
+            inputs.join(", "),
+            outputs.join(", ")
+        )
     }
 
     /// Runs inference on an already-preprocessed `[1, 3, 224, 224]` RGB tensor.

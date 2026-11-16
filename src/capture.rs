@@ -6,7 +6,7 @@
 //! preprocessing here (rather than leaning on a MediaPipe SDK) is what the spec
 //! calls for: we own the pixel-format and resize steps.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use ndarray::Array4;
 use opencv::core::{Mat, Size, Vec3b};
 use opencv::prelude::*;
@@ -84,22 +84,21 @@ impl Camera {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use opencv::core::{Scalar, CV_8UC3};
+    use opencv::core::{CV_8UC3, Scalar};
 
     #[test]
     fn mat_to_input_shape_range_and_channel_order() -> Result<()> {
         // A solid 10x20 BGR image with B=10, G=128, R=250.
-        let bgr = Mat::new_rows_cols_with_default(
-            20,
-            10,
-            CV_8UC3,
-            Scalar::new(10.0, 128.0, 250.0, 0.0),
-        )?;
+        let bgr =
+            Mat::new_rows_cols_with_default(20, 10, CV_8UC3, Scalar::new(10.0, 128.0, 250.0, 0.0))?;
 
         let (input, w, h) = mat_to_input(&bgr)?;
 
         assert_eq!((w, h), (10, 20));
-        assert_eq!(input.shape(), &[1, 3, INPUT_SIZE as usize, INPUT_SIZE as usize]);
+        assert_eq!(
+            input.shape(),
+            &[1, 3, INPUT_SIZE as usize, INPUT_SIZE as usize]
+        );
         assert!(input.iter().all(|&v| (0.0..=1.0).contains(&v)));
         // Channels were reordered BGR -> RGB: R (250) > G (128) > B (10).
         assert!(input[[0, 0, 0, 0]] > input[[0, 1, 0, 0]]);
