@@ -46,6 +46,13 @@ cargo run -- --camera           # デバイス 0 を 30 フレーム処理
 cargo run -- --camera 1 100     # デバイス 1 を 100 フレーム処理
 ```
 
+紙の4隅（左上→右上→右下→左下の順、元画像のピクセル座標）を指定して、
+真上から見た長方形に正対化した画像を保存する：
+
+```sh
+cargo run --bin rectify -- testdata/pointing_up.jpg out.png --size 297x210 --corners 60,40,300,20,340,360,20,330
+```
+
 出力例（`testdata/pointing_up.jpg`、人差し指を上に立てた手）：
 
 ```
@@ -72,5 +79,9 @@ cargo run -- --camera 1 100     # デバイス 1 を 100 フレーム処理
   `[1,3,224,224]` RGB テンソルへの前処理）。
 - `src/landmark.rs` — `HandLandmarker`: 推論と出力デコード（224×224 座標を
   元画像サイズへスケール変換）。
+- `src/homography.rs` — 紙の4隅から射影変換行列を求め（OpenCV の
+  `get_perspective_transform`）、正対化した画像への変換と、元画像の点の
+  正対化後座標への変換（`map_point`）を行う。4隅の検査と A4 サイズ補助も持つ。
+- `src/bin/rectify.rs` — 静止画を4隅で正対化して保存する CLI。
 - `src/main.rs` — CLI。静止画／カメラを OpenCV で読み込み、ランドマークを
   表示する。
